@@ -13,9 +13,16 @@
 # Import modules
 import sys, os, arcpy
 
+#Allow outputs to be overwritten
+arcpy.env.overwriteOutput = True
+
 # Set input variables (Hard-wired)
 inputFile = 'V:/ARGOSTracking/Data/ARGOSData/1997dg.txt'
 outputFC = "V:/ARGOSTracking/Scratch/ARGOStrack.shp"
+
+# Create feature class to which we will add features
+outPath, outFile = os.path.split(outputFC)
+arcpy.management.CreateFeatureclass(outPath,outFile)
 
 #%% Construct a while loop and iterate through all lines in the data file
 # Open the ARGOS data file
@@ -45,9 +52,14 @@ while lineString:
         # Extract the date we need to variables
         obsLat = line2Data[2]
         obsLon= line2Data[5]
+                    
+        # Extract the date, time, and LC values
+        obsDate = lineData[3]
+        obsTime = lineData[4]
+        obsLC   = lineData[7]
         
         # Print results to see how we're doing
-        print (tagID,"Lat:"+obsLat,"Long:"+obsLon)
+        print (tagID,"Lat:"+obsLat,"Long:"+obsLon, obsLC, obsDate, obsTime)
         
     # Move to the next line so the while loop progresses
     lineString = inputFileObj.readline()
