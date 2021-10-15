@@ -99,6 +99,15 @@ for inputFile in inputFiles:
                 #Skip rest of code block
                 continue
             
+            #Fix date records
+            day, month, year = obsDate.split('.')
+            if int(year) >= 20: 
+                full_year = f'19{year}'
+            else:
+                full_year = f'20{year}'
+            obsDate_fix = f'{month}/{day}/{full_year} ' + obsTime
+                
+            
             # Print results to see how we're doing
             #print (tagID,"Lat:"+obsLat,"Long:"+obsLon, obsLC, obsDate, obsTime)
             
@@ -126,12 +135,13 @@ for inputFile in inputFiles:
                 #Insert our feature into our feature class
                 feature = cur.insertRow((obsPointGeom,os.path.basename(inputFile),
                                          tagID,obsLC,
-                                         obsDate.replace(".","/") + " " + obsTime))
+                                         obsDate_fix))
                 
             #Handle any error
             except Exception as e:
                 pt_error_count += 1
-                print(f"Error adding record {tagID} to the output: {e}")
+                #arcpy.AddWarning(f"Error adding record {tagID} to the output: {e}")
+
                 
         # Move to the next line so the while loop progresses
         lineString = inputFileObj.readline()
