@@ -19,22 +19,31 @@ arcpy.env.overwriteOutput = True
 # Set input variables 
 inputFolder = sys.argv[1] #'V:/ARGOSTracking/Data/ARGOSData'
 outputSR = sys.argv[2] #arcpy.SpatialReference(54002)
-outputFC = sys.argv[3] #"V:/ARGOSTracking/Scratch/ARGOStrack.shp"
+lcFilters = sys.argv[3] #1;2;3
+outputFC = sys.argv[4] #"V:/ARGOSTracking/Scratch/ARGOStrack.shp"
 
 # Create a list of files in the user provided input folder
 inputFiles = os.listdir(inputFolder)
+
+# Split multistring into list
+lcValues = lcFilters.split(';')
 
 # Create feature class to which we will add features
 outPath, outFile = os.path.split(outputFC)
 arcpy.management.CreateFeatureclass(outPath,outFile,"POINT","","","",outputSR)
 
 # Add TagID, LC, IQ, and Date fields to the output feature class
+arcpy.AddField_management(outputFC,"SourceFile","TEXT")
 arcpy.AddField_management(outputFC,"TagID","LONG")
 arcpy.AddField_management(outputFC,"LC","TEXT")
 arcpy.AddField_management(outputFC,"Date","DATE")
 
 #Create insert cursor 
-cur = arcpy.da.InsertCursor(outputFC,['SHAPE@','TagID','LC','Date'])
+cur = arcpy.da.InsertCursor(outputFC,['SHAPE@','SourceFile','TagID','LC','Date'])
+
+#Create some counter variables
+lc_filter_count = 0
+pt_error_count = 0
 
 #Iterate through each input file
 for inputFile in inputFiles:
@@ -81,6 +90,15 @@ for inputFile in inputFiles:
             obsTime = lineData[4]
             obsLC   = lineData[7]
             
+            #Skip record if not in LC value list
+            if obsLC not in lcValues:
+                #Add to the lc tally
+                lc_filter_count += 1
+                #Move to next record
+                lineString = inputFileObj.readline()
+                #Skip rest of code block
+                continue
+            
             # Print results to see how we're doing
             #print (tagID,"Lat:"+obsLat,"Long:"+obsLon, obsLC, obsDate, obsTime)
             
@@ -106,10 +124,13 @@ for inputFile in inputFiles:
                 obsPointGeom = arcpy.PointGeometry(obsPoint,inputSR)
                 
                 #Insert our feature into our feature class
-                feature = cur.insertRow((obsPointGeom,tagID,obsLC,obsDate.replace(".","/") + " " + obsTime))
+                feature = cur.insertRow((obsPointGeom,os.path.basename(inputFile),
+                                         tagID,obsLC,
+                                         obsDate.replace(".","/") + " " + obsTime))
                 
             #Handle any error
             except Exception as e:
+                pt_error_count += 1
                 print(f"Error adding record {tagID} to the output: {e}")
                 
         # Move to the next line so the while loop progresses
@@ -120,3 +141,12 @@ for inputFile in inputFiles:
 
 #Delete the cursor
 del cur
+
+#Give into to user
+if lc_filter_count > 0:
+    arcpy.AddWarning(f'{lc_filter_count} records not meeting LC class')
+else:
+    arcpy.AddMessage("No records omitted because of LC value")
+    
+if pt_error_count > 0:
+    arcpy.AddWarning(f'{pt_error_count} record had not location data')
